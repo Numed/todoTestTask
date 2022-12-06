@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useContext } from "react";
 import { useHttp } from "../../hooks/http.hook";
 import { setDate } from "../../helpers/dateFunc";
 import Spinner from "../spinner/Spinner";
+import { useSelector, useDispatch } from "react-redux";
+import Context from "../context/Context";
 import {
   SectionTitle,
   SectionInner,
@@ -15,15 +17,21 @@ import {
   InputAdd,
   AddButton,
 } from "./style";
-import Popup from "../popup/Popup";
+import {
+  todosChange,
+  todosFetched,
+  todosError,
+  todosCreated,
+  todosDeleted,
+} from "./toDoSlice";
 
 const ToDoContainer = () => {
-  const [todos, setTodos] = useState([]);
-  const [error, setError] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [inputValue, setInputValue] = useState("");
-  const [editingId, setEditingId] = useState(0);
+  const { setEditingId, popupRef } = useContext(Context);
+  const todos = [...useSelector((state) => state.todoList)];
+  const todoStatus = useSelector((state) => state.todosStatus);
   const { request } = useHttp();
+  const dispatch = useDispatch();
 
   const onChangeHandler = (value) => {
     setInputValue(value);
@@ -41,28 +49,19 @@ const ToDoContainer = () => {
   };
 
   const onToDoLoaded = (newTodos) => {
-    setTodos([...todos, ...newTodos]);
-    setError(false);
-    setLoading(false);
+    dispatch(todosFetched([...newTodos]));
   };
 
   const onError = () => {
-    setError(true);
+    todosError();
   };
 
   const changeCompleted = (id) => {
-    const todoElements = todos.filter((todo) => {
-      if (todo.id === id) {
-        todo.completed = !todo.completed;
-      }
-      return todo;
-    });
-    setTodos([...todoElements]);
+    dispatch(todosChange(id));
   };
 
   const addTodo = (e) => {
     e.preventDefault();
-    setLoading(true);
     request(
       "https://jsonplaceholder.typicode.com/todos",
       "POST",
@@ -75,12 +74,12 @@ const ToDoContainer = () => {
   };
 
   const onAddNewTodos = (newTodo) => {
-    return setTodos([...todos, newTodo]), setLoading(false), setInputValue("");
+    return dispatch(todosCreated(newTodo)), setInputValue("");
   };
 
   const deleteTodo = (id) => {
     request(`https://jsonplaceholder.typicode.com/todos/${id}`, "DELETE");
-    setTodos(todos.filter((todo) => todo.id !== id));
+    dispatch(todosDeleted(id));
   };
 
   const openPopup = (e, id) => {
@@ -91,43 +90,47 @@ const ToDoContainer = () => {
   };
 
   const View = ({ todos }) => {
-    const todoTasks = todos.map((todo, i) => {
-      return (
-        <ToDoInner key={i}>
-          <Label
-            htmlFor={todo.id}
-            style={
-              todo.completed
-                ? { textDecoration: "line-through" }
-                : { textDecoration: "none" }
-            }
-          >
-            <input
-              type="checkbox"
-              name=""
-              id={todo.id}
-              onChange={() => changeCompleted(todo.id)}
-              checked={todo.completed}
-            />
-            <li>{todo.title}</li>
-          </Label>
-          <ButtonContainer>
-            <EditButton
-              className="edit-btn"
-              onClick={(e) => openPopup(e, todo.id)}
-            />
-            <RemoveButton onClick={() => deleteTodo(todo.id)} />
-          </ButtonContainer>
-        </ToDoInner>
-      );
-    });
-    return <Ul>{todoTasks}</Ul>;
+    if (todos.length > 0) {
+      const todoTasks = todos.map((todo, i) => {
+        return (
+          <ToDoInner key={i}>
+            <Label
+              htmlFor={todo.id}
+              style={
+                todo.completed
+                  ? { textDecoration: "line-through" }
+                  : { textDecoration: "none" }
+              }
+            >
+              <input
+                type="checkbox"
+                name=""
+                id={todo.id}
+                onChange={() => changeCompleted(todo.id)}
+                checked={todo.completed}
+              />
+              <li>{todo.title}</li>
+            </Label>
+            <ButtonContainer>
+              <EditButton
+                className="edit-btn"
+                onClick={(e) => openPopup(e, todo.id)}
+              />
+              <RemoveButton onClick={() => deleteTodo(todo.id)} />
+            </ButtonContainer>
+          </ToDoInner>
+        );
+      });
+      return <Ul>{todoTasks}</Ul>;
+    }
   };
 
   const date = setDate();
-  const errorMessage = error ? "Error" : null;
-  const spinner = loading ? <Spinner /> : null;
-  const content = !(error || spinner || !todos) ? <View todos={todos} /> : null;
+  const errorMessage = todoStatus === "Error" ? "Error" : null;
+  const spinner = todoStatus === "Fetching" ? <Spinner /> : null;
+  const content = !(todoStatus === "Error" || spinner || !todos) ? (
+    <View todos={todos} />
+  ) : null;
 
   return (
     <main>
@@ -145,9 +148,9 @@ const ToDoContainer = () => {
           />
           <AddButton
             type="submit"
-            disabled={loading}
+            disabled={todoStatus === "Fetching"}
             style={
-              loading
+              todoStatus === "Fetching"
                 ? { background: "rgba(168, 218, 220, .6)" }
                 : { background: "#a8dadc" }
             }
@@ -156,7 +159,6 @@ const ToDoContainer = () => {
           </AddButton>
         </Form>
       </SectionInner>
-      <Popup editingId={editingId} />
     </main>
   );
 };
