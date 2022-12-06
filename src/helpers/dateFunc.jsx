@@ -38,6 +38,6 @@ export const setDate = () => {
   const nameMonth = getMonth();
   const day = getDay();
   const numberOfDay = date.getDate();
-  const currentDate = day + ", " + nameMonth + " " + numberOfDay;
+  const currentDate = day + ", " + numberOfDay + " " + nameMonth;
   return currentDate;
 };

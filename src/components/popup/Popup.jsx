@@ -1,5 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useContext } from "react";
 import { useHttp } from "../../hooks/http.hook";
+import { useSelector, useDispatch } from "react-redux";
 import {
   SaveButton,
   InputText,
@@ -11,11 +12,15 @@ import {
   PopUpInner,
   PopUp,
 } from "./style";
+import Context from "../context/Context";
+import { todosFetched } from "../toDoContainer/toDoSlice";
 
-const Popup = ({ editingId }) => {
+const Popup = () => {
   const [title, setTitle] = useState("");
-  const popupRef = useRef();
   const { request } = useHttp();
+  const { editingId, popupRef } = useContext(Context);
+  const todos = [...useSelector((state) => state.todoList)];
+  const dispatch = useDispatch();
 
   const editTodo = () => {
     if (editingId !== 0 && title !== "") {
@@ -29,13 +34,13 @@ const Popup = ({ editingId }) => {
         })
       )
         .then(onEditTodos)
-        .catch(onError);
+        .catch(new Error("Some error"));
     }
   };
 
   const onEditTodos = (newTodo) => {
     todos[newTodo.id - 1] = newTodo;
-    setTodos([...todos]);
+    dispatch(todosFetched(todos));
     popupRef.current.classList.remove("show");
     setTitle("");
   };
